@@ -7,26 +7,6 @@
 
 ## 项目结构
 
-```
-milvus-admin/
-├── src/main/java/com/example/milvus/
-│   ├── MilvusSpringBootApplication.java    # Spring Boot启动类
-│   ├── config/
-│   │   └── MilvusConfig.java               # Milvus客户端配置
-│   ├── controller/
-│   │   ├── MilvusController.java          # Milvus API控制器
-│   │   └── ViewController.java          # 视图控制器
-│   ├── service/
-│   │   └── MilvusService.java             # Milvus业务逻辑服务
-│   ├── model/
-│   │   └── CollectionInfo.java            # 集合信息模型
-│   └── util/
-│       └── ResponseUtil.java              # 响应工具类
-├── src/main/resources/
-│   ├── application.properties             # 应用配置文件
-│   └── static/                           # 前端静态资源
-└── pom.xml                               # Maven依赖配置
-```
 
 ## 主要功能
 
@@ -48,13 +28,6 @@ milvus-admin/
 - `DELETE /api/milvus/collections/{name}/data/{id}` - 删除数据
 - `POST /api/milvus/collections/{name}/search` - 向量搜索
 
-## 修复的问题
-
-1. **导入错误**: 修复了`FieldInfo`导入错误，使用正确的`FieldSchema`类
-2. **方法调用错误**: 修复了`getFields()`方法调用，使用正确的`getFieldsList()`方法
-3. **数据获取逻辑**: 优化了集合数据获取，从搜索接口改为查询接口
-4. **代码结构**: 重构了业务逻辑，将重复代码提取到服务类中
-5. **响应处理**: 添加了统一的响应工具类简化API响应
 
 ## 配置
 
