@@ -1,0 +1,1019 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Milvus Web UI</title>
+    <script src="res/tailwindcss.js"></script>
+    <link href="res/font-awesome.min.css" rel="stylesheet">
+    <script src="res/chart.umd.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#4F46E5',
+                        secondary: '#10B981',
+                        accent: '#F59E0B',
+                        dark: '#1E293B',
+                        light: '#F8FAFC'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .card-shadow {
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            }
+            .transition-height {
+                transition: max-height 0.3s ease-in-out;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 min-h-screen flex flex-col">
+    <!-- 顶部导航栏 -->
+    <header class="bg-white shadow-sm sticky top-0 z-50">
+        <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center space-x-2">
+                <i class="fa fa-database text-primary text-2xl"></i>
+                <h1 class="text-xl font-bold text-primary">Milvus UI</h1>
+            </div>
+            <div class="flex items-center space-x-4">
+                <span id="connection-status" class="text-sm hidden md:inline-flex items-center">
+                    <span class="w-2 h-2 rounded-full bg-red-500 mr-2"></span>
+                    未连接
+                </span>
+                <button id="theme-toggle" class="p-2 rounded-full hover:bg-gray-100 transition-colors">
+                    <i class="fa fa-moon-o"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主内容区 -->
+    <main class="flex-grow container mx-auto px-4 py-6">
+        <!-- 连接面板 -->
+        <section id="connection-panel" class="bg-white rounded-lg p-6 mb-6 card-shadow">
+            <h2 class="text-lg font-semibold mb-4 flex items-center">
+                <i class="fa fa-plug text-primary mr-2"></i> Milvus 连接设置
+            </h2>
+            <form id="connection-form" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">主机地址</label>
+                    <input type="text" id="host" value="localhost" 
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">端口</label>
+                    <input type="number" id="port" value="19530" 
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">用户名 (可选)</label>
+                    <input type="text" id="username" 
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">密码 (可选)</label>
+                    <input type="password" id="password" 
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                </div>
+                <div class="md:col-span-2 flex justify-end">
+                    <button type="submit" class="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-md transition-colors flex items-center">
+                        <i class="fa fa-connectdevelop mr-2"></i> 连接
+                    </button>
+                </div>
+            </form>
+        </section>
+
+        <!-- 集合管理面板 -->
+        <section id="collections-panel" class="bg-white rounded-lg p-6 mb-6 card-shadow hidden">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-lg font-semibold flex items-center">
+                    <i class="fa fa-folder-open text-primary mr-2"></i> 集合管理
+                </h2>
+                <button id="create-collection-btn" class="bg-secondary hover:bg-secondary/90 text-white px-3 py-1 rounded-md text-sm transition-colors flex items-center">
+                    <i class="fa fa-plus mr-1"></i> 创建集合
+                </button>
+            </div>
+            
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead>
+                        <tr>
+                            <th class="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">集合名称</th>
+                            <th class="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">描述</th>
+                            <th class="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">向量维度</th>
+                            <th class="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">数据量</th>
+                            <th class="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
+                            <th class="px-4 py-3 bg-gray-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="collections-list" class="bg-white divide-y divide-gray-200">
+                        <tr>
+                            <td colspan="6" class="px-4 py-8 text-center text-gray-500">
+                                <i class="fa fa-spinner fa-spin mr-2"></i> 加载集合列表中...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- 数据操作面板 -->
+        <section id="data-panel" class="bg-white rounded-lg p-6 mb-6 card-shadow hidden">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-lg font-semibold flex items-center">
+                    <i class="fa fa-table text-primary mr-2"></i> 数据操作
+                </h2>
+                <div class="flex space-x-2">
+                    <button id="insert-data-btn" class="bg-accent hover:bg-accent/90 text-white px-3 py-1 rounded-md text-sm transition-colors flex items-center">
+                        <i class="fa fa-plus mr-1"></i> 插入数据
+                    </button>
+                    <button id="search-data-btn" class="bg-primary hover:bg-primary/90 text-white px-3 py-1 rounded-md text-sm transition-colors flex items-center">
+                        <i class="fa fa-search mr-1"></i> 搜索向量
+                    </button>
+                </div>
+            </div>
+            
+            <div id="collection-info" class="mb-4 p-3 bg-gray-50 rounded-md">
+                <p class="text-sm text-gray-600">当前集合: <span id="current-collection" class="font-medium">未选择</span></p>
+            </div>
+            
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead>
+                        <tr>
+                            <th class="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                            <th class="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">向量预览</th>
+                            <th class="px-4 py-3 bg-gray-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="data-list" class="bg-white divide-y divide-gray-200">
+                        <tr>
+                            <td colspan="3" class="px-4 py-8 text-center text-gray-500">
+                                <i class="fa fa-spinner fa-spin mr-2"></i> 加载数据中...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="mt-4 flex justify-between items-center">
+                <div class="text-sm text-gray-600">显示 <span id="shown-count">0</span> 条，共 <span id="total-count">0</span> 条</div>
+                <div class="flex space-x-2">
+                    <button id="prev-page" class="px-3 py-1 border border-gray-300 rounded-md text-sm disabled:opacity-50 disabled:cursor-not-allowed" disabled>上一页</button>
+                    <button id="next-page" class="px-3 py-1 border border-gray-300 rounded-md text-sm disabled:opacity-50 disabled:cursor-not-allowed" disabled>下一页</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 搜索结果面板 -->
+        <section id="search-results-panel" class="bg-white rounded-lg p-6 mb-6 card-shadow hidden">
+            <h2 class="text-lg font-semibold mb-4 flex items-center">
+                <i class="fa fa-search text-primary mr-2"></i> 搜索结果
+            </h2>
+            
+            <div id="search-stats" class="mb-4 p-3 bg-gray-50 rounded-md">
+                <p class="text-sm text-gray-600">搜索耗时: <span id="search-time" class="font-medium">0</span> ms | 找到 <span id="results-count" class="font-medium">0</span> 个结果</p>
+            </div>
+            
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead>
+                        <tr>
+                            <th class="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">排名</th>
+                            <th class="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                            <th class="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">向量预览</th>
+                            <th class="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">距离</th>
+                        </tr>
+                    </thead>
+                    <tbody id="search-results-list" class="bg-white divide-y divide-gray-200">
+                        <!-- 搜索结果将通过JavaScript动态填充 -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- 向量可视化 -->
+            <div class="mt-6">
+                <h3 class="text-sm font-medium mb-3">向量距离可视化</h3>
+                <div class="h-64">
+                    <canvas id="distance-chart"></canvas>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- 页脚 -->
+    <footer class="bg-white border-t border-gray-200 py-4">
+        <div class="container mx-auto px-4 text-center text-sm text-gray-500">
+            <p>Milvus Web UI - 集成在Spring Boot中的Milvus管理界面</p>
+        </div>
+    </footer>
+
+    <!-- 创建集合模态框 -->
+    <div id="create-collection-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg w-full max-w-md p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold">创建新集合</h3>
+                <button id="close-create-modal" class="text-gray-500 hover:text-gray-700">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>
+            <form id="create-collection-form">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">集合名称</label>
+                    <input type="text" id="new-collection-name" required
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">描述</label>
+                    <input type="text" id="new-collection-desc"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">向量维度</label>
+                    <input type="number" id="new-collection-dim" value="128" min="1" required
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                </div>
+                <div class="flex justify-end space-x-2">
+                    <button type="button" id="cancel-create-collection" class="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors">取消</button>
+                    <button type="submit" class="px-4 py-2 bg-secondary text-white rounded-md hover:bg-secondary/90 transition-colors">创建</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 插入数据模态框 -->
+    <div id="insert-data-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg w-full max-w-md p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold">插入数据</h3>
+                <button id="close-insert-modal" class="text-gray-500 hover:text-gray-700">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>
+            <form id="insert-data-form">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">ID</label>
+                    <input type="number" id="insert-id" required
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">向量数据 (用逗号分隔的数字)</label>
+                    <textarea id="insert-vector" rows="4" placeholder="例如: 0.1,0.2,0.3,..." required
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"></textarea>
+                    <p class="text-xs text-gray-500 mt-1">向量维度必须与集合定义一致</p>
+                </div>
+                <div class="flex justify-end space-x-2">
+                    <button type="button" id="cancel-insert" class="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors">取消</button>
+                    <button type="submit" class="px-4 py-2 bg-accent text-white rounded-md hover:bg-accent/90 transition-colors">插入</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 搜索向量模态框 -->
+    <div id="search-data-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg w-full max-w-md p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold">搜索向量</h3>
+                <button id="close-search-modal" class="text-gray-500 hover:text-gray-700">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>
+            <form id="search-data-form">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">向量数据 (用逗号分隔的数字)</label>
+                    <textarea id="search-vector" rows="4" placeholder="例如: 0.1,0.2,0.3,..." required
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"></textarea>
+                    <p class="text-xs text-gray-500 mt-1">向量维度必须与集合定义一致</p>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">返回结果数量</label>
+                    <input type="number" id="search-topk" value="10" min="1" max="100" required
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                </div>
+                <div class="flex justify-end space-x-2">
+                    <button type="button" id="cancel-search" class="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors">取消</button>
+                    <button type="submit" class="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors">搜索</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 通知提示 -->
+    <div id="notification" class="fixed bottom-4 right-4 px-4 py-3 rounded-md shadow-lg transform translate-y-20 opacity-0 transition-all duration-300 flex items-center max-w-sm"></div>
+
+    <script>
+        // 应用状态管理
+        const appState = {
+            connected: false,
+            currentCollection: null,
+            currentPage: 1,
+            pageSize: 10,
+            distanceChart: null,
+            milvusConfig: {
+                host: 'localhost',
+                port: 19530,
+                username: '',
+                password: ''
+            }
+        };
+
+        // DOM元素
+        const elements = {
+            connectionForm: document.getElementById('connection-form'),
+            connectionStatus: document.getElementById('connection-status'),
+            collectionsPanel: document.getElementById('collections-panel'),
+            dataPanel: document.getElementById('data-panel'),
+            searchResultsPanel: document.getElementById('search-results-panel'),
+            collectionsList: document.getElementById('collections-list'),
+            dataList: document.getElementById('data-list'),
+            searchResultsList: document.getElementById('search-results-list'),
+            createCollectionBtn: document.getElementById('create-collection-btn'),
+            createCollectionModal: document.getElementById('create-collection-modal'),
+            closeCreateModal: document.getElementById('close-create-modal'),
+            cancelCreateCollection: document.getElementById('cancel-create-collection'),
+            createCollectionForm: document.getElementById('create-collection-form'),
+            insertDataBtn: document.getElementById('insert-data-btn'),
+            insertDataModal: document.getElementById('insert-data-modal'),
+            closeInsertModal: document.getElementById('close-insert-modal'),
+            cancelInsert: document.getElementById('cancel-insert'),
+            insertDataForm: document.getElementById('insert-data-form'),
+            searchDataBtn: document.getElementById('search-data-btn'),
+            searchDataModal: document.getElementById('search-data-modal'),
+            closeSearchModal: document.getElementById('close-search-modal'),
+            cancelSearch: document.getElementById('cancel-search'),
+            searchDataForm: document.getElementById('search-data-form'),
+            currentCollection: document.getElementById('current-collection'),
+            shownCount: document.getElementById('shown-count'),
+            totalCount: document.getElementById('total-count'),
+            prevPage: document.getElementById('prev-page'),
+            nextPage: document.getElementById('next-page'),
+            searchTime: document.getElementById('search-time'),
+            resultsCount: document.getElementById('results-count'),
+            notification: document.getElementById('notification'),
+            themeToggle: document.getElementById('theme-toggle')
+        };
+
+        // 显示通知
+        function showNotification(message, type = 'success') {
+            const notification = elements.notification;
+            notification.textContent = message;
+            
+            // 设置样式
+            notification.className = 'fixed bottom-4 right-4 px-4 py-3 rounded-md shadow-lg transform translate-y-0 opacity-100 transition-all duration-300 flex items-center max-w-sm';
+            
+            if (type === 'success') {
+                notification.classList.add('bg-green-50', 'text-green-800', 'border-l-4', 'border-green-500');
+                notification.innerHTML = `<i class="fa fa-check-circle text-green-500 mr-2"></i> ${message}`;
+            } else if (type === 'error') {
+                notification.classList.add('bg-red-50', 'text-red-800', 'border-l-4', 'border-red-500');
+                notification.innerHTML = `<i class="fa fa-exclamation-circle text-red-500 mr-2"></i> ${message}`;
+            } else if (type === 'info') {
+                notification.classList.add('bg-blue-50', 'text-blue-800', 'border-l-4', 'border-blue-500');
+                notification.innerHTML = `<i class="fa fa-info-circle text-blue-500 mr-2"></i> ${message}`;
+            }
+            
+            // 3秒后隐藏
+            setTimeout(() => {
+                notification.classList.remove('translate-y-0', 'opacity-100');
+                notification.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+
+        // 更新连接状态
+        function updateConnectionStatus(connected) {
+            appState.connected = connected;
+            if (connected) {
+                elements.connectionStatus.innerHTML = '<span class="w-2 h-2 rounded-full bg-green-500 mr-2"></span>已连接';
+                elements.collectionsPanel.classList.remove('hidden');
+                fetchCollections(); // 连接成功后获取集合列表
+            } else {
+                elements.connectionStatus.innerHTML = '<span class="w-2 h-2 rounded-full bg-red-500 mr-2"></span>未连接';
+                elements.collectionsPanel.classList.add('hidden');
+                elements.dataPanel.classList.add('hidden');
+                elements.searchResultsPanel.classList.add('hidden');
+            }
+        }
+
+        // 获取集合列表
+        async function fetchCollections() {
+            try {
+                elements.collectionsList.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="px-4 py-8 text-center text-gray-500">
+                            <i class="fa fa-spinner fa-spin mr-2"></i> 加载集合列表中...
+                        </td>
+                    </tr>
+                `;
+                
+                const response = await fetch('/api/milvus/collections');
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || '获取集合列表失败');
+                }
+                
+                renderCollections(data);
+            } catch (error) {
+                elements.collectionsList.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="px-4 py-8 text-center text-red-500">
+                            <i class="fa fa-exclamation-circle mr-2"></i> ${error.message}
+                        </td>
+                    </tr>
+                `;
+                showNotification(error.message, 'error');
+            }
+        }
+
+        // 渲染集合列表
+        function renderCollections(collections) {
+            elements.collectionsList.innerHTML = '';
+            
+            if (collections.length === 0) {
+                elements.collectionsList.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="px-4 py-8 text-center text-gray-500">
+                            <i class="fa fa-folder-open-o mr-2"></i> 没有找到集合
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            collections.forEach(collection => {
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-gray-50 transition-colors';
+                
+                // 状态样式
+                let statusClass = 'px-2 py-1 text-xs rounded-full';
+                if (collection.status === 'loaded') {
+                    statusClass += ' bg-green-100 text-green-800';
+                } else {
+                    statusClass += ' bg-gray-100 text-gray-800';
+                }
+                
+                row.innerHTML = `
+                    <td class="px-4 py-3 whitespace-nowrap">
+                        <div class="font-medium text-gray-900">${collection.name}</div>
+                    </td>
+                    <td class="px-4 py-3">
+                        <div class="text-sm text-gray-500">${collection.description || '-'}</div>
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap">
+                        <div class="text-sm text-gray-500">${collection.dimension}</div>
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap">
+                        <div class="text-sm text-gray-500">${collection.count}</div>
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap">
+                        <span class="${statusClass}">${collection.status === 'loaded' ? '已加载' : '未加载'}</span>
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
+                        <button class="text-primary hover:text-primary/80 mr-3 load-collection" data-name="${collection.name}">
+                            ${collection.status === 'loaded' ? '查看数据' : '加载'}
+                        </button>
+                        <button class="text-red-500 hover:text-red-700 delete-collection" data-name="${collection.name}">
+                            删除
+                        </button>
+                    </td>
+                `;
+                
+                elements.collectionsList.appendChild(row);
+            });
+            
+            // 添加事件监听
+            document.querySelectorAll('.load-collection').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    const collectionName = e.currentTarget.dataset.name;
+                    await loadCollection(collectionName);
+                });
+            });
+            
+            document.querySelectorAll('.delete-collection').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    const collectionName = e.currentTarget.dataset.name;
+                    if (confirm(`确定要删除集合 ${collectionName} 吗？此操作不可恢复。`)) {
+                        await deleteCollection(collectionName);
+                    }
+                });
+            });
+        }
+
+        // 加载集合
+        async function loadCollection(collectionName) {
+            try {
+                const response = await fetch(`/api/milvus/collections/${collectionName}/load`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || `加载集合 ${collectionName} 失败`);
+                }
+                
+                appState.currentCollection = collectionName;
+                elements.currentCollection.textContent = collectionName;
+                elements.dataPanel.classList.remove('hidden');
+                appState.currentPage = 1;
+                await fetchCollectionData(collectionName, appState.currentPage);
+                await fetchCollections(); // 刷新集合列表
+                showNotification(`集合 ${collectionName} 已加载`);
+            } catch (error) {
+                showNotification(error.message, 'error');
+            }
+        }
+
+        // 删除集合
+        async function deleteCollection(collectionName) {
+            try {
+                const response = await fetch(`/api/milvus/collections/${collectionName}`, {
+                    method: 'DELETE'
+                });
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || `删除集合 ${collectionName} 失败`);
+                }
+                
+                if (appState.currentCollection === collectionName) {
+                    appState.currentCollection = null;
+                    elements.dataPanel.classList.add('hidden');
+                    elements.searchResultsPanel.classList.add('hidden');
+                }
+                
+                await fetchCollections();
+                showNotification(`集合 ${collectionName} 已删除`);
+            } catch (error) {
+                showNotification(error.message, 'error');
+            }
+        }
+
+        // 获取集合数据
+        async function fetchCollectionData(collectionName, page) {
+            try {
+                elements.dataList.innerHTML = `
+                    <tr>
+                        <td colspan="3" class="px-4 py-8 text-center text-gray-500">
+                            <i class="fa fa-spinner fa-spin mr-2"></i> 加载数据中...
+                        </td>
+                    </tr>
+                `;
+                
+                const response = await fetch(`/api/milvus/collections/${collectionName}/data?page=${page}&pageSize=${appState.pageSize}`);
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || '获取集合数据失败');
+                }
+                
+                renderCollectionData(data);
+            } catch (error) {
+                elements.dataList.innerHTML = `
+                    <tr>
+                        <td colspan="3" class="px-4 py-8 text-center text-red-500">
+                            <i class="fa fa-exclamation-circle mr-2"></i> ${error.message}
+                        </td>
+                    </tr>
+                `;
+                showNotification(error.message, 'error');
+            }
+        }
+
+        // 渲染集合数据
+        function renderCollectionData(result) {
+            elements.dataList.innerHTML = '';
+            
+            if (result.data.length === 0) {
+                elements.dataList.innerHTML = `
+                    <tr>
+                        <td colspan="3" class="px-4 py-8 text-center text-gray-500">
+                            <i class="fa fa-file-text-o mr-2"></i> 集合中没有数据
+                        </td>
+                    </tr>
+                `;
+            } else {
+                result.data.forEach(item => {
+                    // 只显示向量的前5个元素
+                    const vectorPreview = item.vector.slice(0, 5).join(', ') + (item.vector.length > 5 ? ', ...' : '');
+                    
+                    const row = document.createElement('tr');
+                    row.className = 'hover:bg-gray-50 transition-colors';
+                    row.innerHTML = `
+                        <td class="px-4 py-3 whitespace-nowrap">
+                            <div class="text-sm text-gray-900">${item.id}</div>
+                        </td>
+                        <td class="px-4 py-3">
+                            <div class="text-sm text-gray-500">${vectorPreview}</div>
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
+                            <button class="text-red-500 hover:text-red-700 delete-data" data-id="${item.id}">
+                                删除
+                            </button>
+                        </td>
+                    `;
+                    
+                    elements.dataList.appendChild(row);
+                });
+                
+                // 添加删除数据事件监听
+                document.querySelectorAll('.delete-data').forEach(btn => {
+                    btn.addEventListener('click', async (e) => {
+                        const id = parseInt(e.currentTarget.dataset.id);
+                        await deleteData(appState.currentCollection, id);
+                    });
+                });
+            }
+            
+            // 更新分页信息
+            elements.shownCount.textContent = result.data.length;
+            elements.totalCount.textContent = result.total;
+            
+            // 更新分页按钮状态
+            elements.prevPage.disabled = result.page === 1;
+            elements.nextPage.disabled = !result.hasMore;
+            
+            // 重置分页按钮事件
+            elements.prevPage.onclick = () => {
+                if (result.page > 1) {
+                    appState.currentPage = result.page - 1;
+                    fetchCollectionData(appState.currentCollection, appState.currentPage);
+                }
+            };
+            
+            elements.nextPage.onclick = () => {
+                if (result.hasMore) {
+                    appState.currentPage = result.page + 1;
+                    fetchCollectionData(appState.currentCollection, appState.currentPage);
+                }
+            };
+        }
+
+        // 删除数据
+        async function deleteData(collectionName, id) {
+            try {
+                const response = await fetch(`/api/milvus/collections/${collectionName}/data/${id}`, {
+                    method: 'DELETE'
+                });
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || `删除ID为 ${id} 的数据失败`);
+                }
+                
+                await fetchCollectionData(collectionName, appState.currentPage);
+                await fetchCollections(); // 刷新集合数据量
+                showNotification(`ID为 ${id} 的数据已删除`);
+            } catch (error) {
+                showNotification(error.message, 'error');
+            }
+        }
+
+        // 创建集合
+        async function createCollection(name, description, dimension) {
+            try {
+                const response = await fetch(`/api/milvus/collections?name=${encodeURIComponent(name)}&description=${encodeURIComponent(description || '')}&dimension=${dimension}`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || '创建集合失败');
+                }
+                
+                await fetchCollections();
+                showNotification(`集合 ${name} 创建成功`);
+                return true;
+            } catch (error) {
+                showNotification(error.message, 'error');
+                return false;
+            }
+        }
+
+        // 插入数据
+        async function insertData(collectionName, id, vector) {
+            try {
+                const response = await fetch(`/api/milvus/collections/${collectionName}/data?id=${id}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(vector)
+                });
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || '插入数据失败');
+                }
+                
+                await fetchCollectionData(collectionName, appState.currentPage);
+                await fetchCollections(); // 刷新集合数据量
+                showNotification(`数据已成功插入集合 ${collectionName}`);
+                return true;
+            } catch (error) {
+                showNotification(error.message, 'error');
+                return false;
+            }
+        }
+
+        // 搜索向量
+        async function searchVector(collectionName, vector, topK) {
+            try {
+                const response = await fetch(`/api/milvus/collections/${collectionName}/search?topK=${topK}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(vector)
+                });
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || '搜索向量失败');
+                }
+                
+                renderSearchResults(data.results, data.time);
+                showNotification(`搜索完成，找到 ${data.results.length} 个匹配结果`);
+                return true;
+            } catch (error) {
+                showNotification(error.message, 'error');
+                return false;
+            }
+        }
+
+        // 渲染搜索结果
+        function renderSearchResults(results, time) {
+            elements.searchResultsList.innerHTML = '';
+            elements.searchTime.textContent = time;
+            elements.resultsCount.textContent = results.length;
+            elements.searchResultsPanel.classList.remove('hidden');
+            
+            if (results.length === 0) {
+                elements.searchResultsList.innerHTML = `
+                    <tr>
+                        <td colspan="4" class="px-4 py-8 text-center text-gray-500">
+                            <i class="fa fa-search mr-2"></i> 没有找到匹配的结果
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            results.forEach((result, index) => {
+                // 只显示向量的前5个元素
+                const vectorPreview = result.vector.slice(0, 5).join(', ') + (result.vector.length > 5 ? ', ...' : '');
+                
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-gray-50 transition-colors';
+                row.innerHTML = `
+                    <td class="px-4 py-3 whitespace-nowrap">
+                        <div class="text-sm font-medium text-gray-900">${index + 1}</div>
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap">
+                        <div class="text-sm text-gray-900">${result.id}</div>
+                    </td>
+                    <td class="px-4 py-3">
+                        <div class="text-sm text-gray-500">${vectorPreview}</div>
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap">
+                        <div class="text-sm text-gray-500">${parseFloat(result.distance).toFixed(6)}</div>
+                    </td>
+                `;
+                
+                elements.searchResultsList.appendChild(row);
+            });
+            
+            // 绘制距离图表
+            renderDistanceChart(results);
+        }
+
+        // 绘制距离图表
+        function renderDistanceChart(results) {
+            const ctx = document.getElementById('distance-chart').getContext('2d');
+            
+            // 销毁现有图表
+            if (appState.distanceChart) {
+                appState.distanceChart.destroy();
+            }
+            
+            // 准备数据
+            const labels = results.map((_, index) => `结果 ${index + 1}`);
+            const distances = results.map(result => parseFloat(result.distance));
+            
+            // 创建新图表
+            appState.distanceChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '向量距离 (L2)',
+                        data: distances,
+                        backgroundColor: 'rgba(79, 70, 229, 0.6)',
+                        borderColor: 'rgba(79, 70, 229, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: '距离值'
+                            }
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `距离: ${context.raw.toFixed(6)}`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // 初始化事件监听
+        function initEventListeners() {
+            // 连接表单提交
+            elements.connectionForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const host = document.getElementById('host').value;
+                const port = document.getElementById('port').value;
+                const username = document.getElementById('username').value;
+                const password = document.getElementById('password').value;
+                
+                // 保存配置
+                appState.milvusConfig = { host, port, username, password };
+                
+                try {
+                    // 构建查询参数
+                    let url = `/api/milvus/connect?host=${encodeURIComponent(host)}&port=${port}`;
+                    if (username && password) {
+                        url += `&username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`;
+                    }
+                    
+                    const response = await fetch(url);
+                    const data = await response.json();
+                    
+                    if (response.ok) {
+                        updateConnectionStatus(true);
+                        showNotification(`成功连接到 Milvus: ${host}:${port}`);
+                    } else {
+                        showNotification(data.error || '连接失败，请检查配置', 'error');
+                    }
+                } catch (error) {
+                    showNotification(`连接错误: ${error.message}`, 'error');
+                }
+            });
+            
+            // 创建集合模态框
+            elements.createCollectionBtn.addEventListener('click', () => {
+                elements.createCollectionModal.classList.remove('hidden');
+            });
+            
+            elements.closeCreateModal.addEventListener('click', () => {
+                elements.createCollectionModal.classList.add('hidden');
+            });
+            
+            elements.cancelCreateCollection.addEventListener('click', () => {
+                elements.createCollectionModal.classList.add('hidden');
+            });
+            
+            elements.createCollectionForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const name = document.getElementById('new-collection-name').value;
+                const desc = document.getElementById('new-collection-desc').value;
+                const dim = document.getElementById('new-collection-dim').value;
+                
+                if (!name) {
+                    showNotification('集合名称不能为空', 'error');
+                    return;
+                }
+                
+                const success = await createCollection(name, desc, dim);
+                if (success) {
+                    elements.createCollectionModal.classList.add('hidden');
+                    elements.createCollectionForm.reset();
+                }
+            });
+            
+            // 插入数据模态框
+            elements.insertDataBtn.addEventListener('click', () => {
+                if (!appState.currentCollection) {
+                    showNotification('请先选择一个集合', 'info');
+                    return;
+                }
+                elements.insertDataModal.classList.remove('hidden');
+            });
+            
+            elements.closeInsertModal.addEventListener('click', () => {
+                elements.insertDataModal.classList.add('hidden');
+            });
+            
+            elements.cancelInsert.addEventListener('click', () => {
+                elements.insertDataModal.classList.add('hidden');
+            });
+            
+            elements.insertDataForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const collectionName = appState.currentCollection;
+                const id = parseInt(document.getElementById('insert-id').value);
+                const vectorStr = document.getElementById('insert-vector').value;
+                
+                // 验证向量格式
+                const vector = vectorStr.split(',').map(v => parseFloat(v.trim()));
+                if (vector.length === 0 || vector.some(v => isNaN(v))) {
+                    showNotification('向量格式不正确，请使用逗号分隔的数字', 'error');
+                    return;
+                }
+                
+                const success = await insertData(collectionName, id, vector);
+                if (success) {
+                    elements.insertDataModal.classList.add('hidden');
+                    elements.insertDataForm.reset();
+                }
+            });
+            
+            // 搜索向量模态框
+            elements.searchDataBtn.addEventListener('click', () => {
+                if (!appState.currentCollection) {
+                    showNotification('请先选择一个集合', 'info');
+                    return;
+                }
+                elements.searchDataModal.classList.remove('hidden');
+            });
+            
+            elements.closeSearchModal.addEventListener('click', () => {
+                elements.searchDataModal.classList.add('hidden');
+            });
+            
+            elements.cancelSearch.addEventListener('click', () => {
+                elements.searchDataModal.classList.add('hidden');
+            });
+            
+            elements.searchDataForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const collectionName = appState.currentCollection;
+                const vectorStr = document.getElementById('search-vector').value;
+                const topK = parseInt(document.getElementById('search-topk').value);
+                
+                // 验证向量格式
+                const vector = vectorStr.split(',').map(v => parseFloat(v.trim()));
+                if (vector.length === 0 || vector.some(v => isNaN(v))) {
+                    showNotification('向量格式不正确，请使用逗号分隔的数字', 'error');
+                    return;
+                }
+                
+                const success = await searchVector(collectionName, vector, topK);
+                if (success) {
+                    elements.searchDataModal.classList.add('hidden');
+                }
+            });
+            
+            // 主题切换
+            elements.themeToggle.addEventListener('click', () => {
+                document.body.classList.toggle('bg-gray-900');
+                document.body.classList.toggle('text-white');
+                document.body.classList.toggle('bg-gray-50');
+                document.body.classList.toggle('text-gray-800');
+                
+                const icon = elements.themeToggle.querySelector('i');
+                if (icon.classList.contains('fa-moon-o')) {
+                    icon.classList.remove('fa-moon-o');
+                    icon.classList.add('fa-sun-o');
+                } else {
+                    icon.classList.remove('fa-sun-o');
+                    icon.classList.add('fa-moon-o');
+                }
+            });
+        }
+
+        // 初始化应用
+        function initApp() {
+            updateConnectionStatus(false);
+            initEventListeners();
+        }
+
+        // 启动应用
+        document.addEventListener('DOMContentLoaded', initApp);
+    </script>
+</body>
+</html>
