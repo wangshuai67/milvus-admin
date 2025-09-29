@@ -3,6 +3,7 @@
 为了方便查看rag系统里面的数据，写了一个简易版的Milvus管理工具
 
 一个基于Spring Boot的Milvus向量数据库管理工具。
+<img width="1507" height="943" alt="image" src="https://github.com/user-attachments/assets/8ea2fbac-e546-40f5-ba9b-e0fe1ea96dce" />
 
 ## 项目结构
 
